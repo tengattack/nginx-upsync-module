@@ -21,6 +21,9 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
+
+#include <ngx_config.h>
+
 #include "ngx_http_parser.h"
 #include <assert.h>
 #include <stddef.h>
