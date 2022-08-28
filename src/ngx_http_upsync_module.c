@@ -701,7 +701,6 @@ ngx_http_upsync_set_conf_dump(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_str_t                         *value;
     ngx_http_upsync_srv_conf_t        *upscf;
-    u_char                            *path;
 
     upscf = ngx_http_conf_get_module_srv_conf(cf,
                                               ngx_http_upsync_module);
@@ -712,24 +711,15 @@ ngx_http_upsync_set_conf_dump(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         return NGX_CONF_ERROR;
     }
 
-    path = ngx_pcalloc(cf->pool, upscf->upsync_dump_path.len + 1);
-    if (path == NULL) {
-        return NGX_CONF_ERROR;
-    }
-    ngx_memcpy(path, upscf->upsync_dump_path.data, upscf->upsync_dump_path.len);
-
-    ngx_int_t err = ngx_create_full_path(path, 0700);
-    if (err) {
-        ngx_log_error(NGX_LOG_ERR, cf->cycle->log, err,
-                      ngx_create_dir_n " \"%V\" failed", upscf->upsync_dump_path);
-        ngx_pfree(cf->pool, path);
-        return NGX_CONF_ERROR;
-    }
-    ngx_pfree(cf->pool, path);
-    path = NULL;
-
     upscf->conf_file = ngx_conf_open_file(cf->cycle, &value[1]);
     if (upscf->conf_file == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    ngx_int_t err = ngx_create_full_path(upscf->conf_file->name.data, 0777);
+    if (err) {
+        ngx_log_error(NGX_LOG_ERR, cf->cycle->log, err,
+                      ngx_create_dir_n " \"%V\" failed", &upscf->upsync_dump_path);
         return NGX_CONF_ERROR;
     }
 
@@ -3619,7 +3609,7 @@ ngx_http_upsync_timeout_handler(ngx_event_t *event)
     upsync_server = event->data;
 
     ngx_log_error(NGX_LOG_ERR, event->log, 0,
-                  "[WARN] upsync_timeout: timed out reading upsync_server: %V ",
+                  "[WARN] upsync_timeout: timed out reading upsync_server: %V",
                   upsync_server->pc.name);
 
     ngx_http_upsync_clean_event(upsync_server);
