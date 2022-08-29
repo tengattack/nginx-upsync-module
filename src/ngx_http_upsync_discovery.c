@@ -169,7 +169,7 @@ ngx_http_upsync_discovery_parse_json(void *data)
         return NGX_ERROR;
     }
 
-    cJSON *server_next, *addrs, *addr_next;
+    cJSON *server_next, *addrs, *addr_next, *metadata;
     for (server_next = instances->child; server_next != NULL;
          server_next = server_next->next)
     {
@@ -183,12 +183,18 @@ ngx_http_upsync_discovery_parse_json(void *data)
             continue;
         }
 
-        temp0 = cJSON_GetObjectItem(server_next, "metadata");
-        if (temp0 == NULL) {
+        metadata = cJSON_GetObjectItem(server_next, "metadata");
+        if (metadata == NULL) {
             continue;
         }
 
-        temp0 = cJSON_GetObjectItem(temp0, "weight");
+        temp0 = cJSON_GetObjectItem(metadata, "color");
+        if (temp0 != NULL && temp0->valuestring != NULL && ngx_strlen(temp0->valuestring) > 0) {
+            // ignore color instance
+            continue;
+        }
+
+        temp0 = cJSON_GetObjectItem(metadata, "weight");
         if (temp0 == NULL || temp0->valuestring == NULL) {
             continue;
         }
