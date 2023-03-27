@@ -132,6 +132,8 @@ typedef struct {
 
     ngx_http_upstream_server_t       conf_server;         /* conf server */
 
+    ngx_str_t                        upsync_params;
+
     void                            *data;
 } ngx_http_upsync_srv_conf_t;
 
@@ -441,6 +443,9 @@ ngx_http_upsync_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
                                               ngx_http_upsync_module);
     conf_server = &upscf->conf_server;
 
+    upscf->upsync_params.len = NGX_CONF_UNSET_SIZE;
+    upscf->upsync_params.data = NGX_CONF_UNSET_PTR;
+
     for (i = 2; i < cf->args->nelts; i++) {
 
         if (ngx_strncmp(value[i].data, "upsync_timeout=", 15) == 0) {
@@ -508,6 +513,14 @@ ngx_http_upsync_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             continue;
         }
 
+        if (ngx_strncmp(value[i].data, "params=", 7) == 0) {
+            s.len = value[i].len - 7;
+            s.data = value[i].data + 7;
+
+            upscf->upsync_params = s;
+            continue;
+        }
+
         goto invalid;
     }
 
@@ -521,9 +534,9 @@ ngx_http_upsync_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         upscf->strong_dependency = strong_dependency;
     }
     if (upscf->upsync_type_conf == NGX_CONF_UNSET_PTR) {
-         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                            "upsync_server: upsync_type cannt be null");
-          goto invalid;
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "upsync_server: upsync_type cannt be null");
+        goto invalid;
     }
 
     ngx_memzero(&u, sizeof(ngx_url_t));
@@ -536,14 +549,18 @@ ngx_http_upsync_server(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         } else {
             ngx_memzero(upscf->data, 1024);
         }
-        p = (u_char *)getenv("DEPLOY_ENV");
-        if (p == NULL) {
-            ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "upsync_server: "
-                               "please declare environment variable 'DEPLOY_ENV'");
-            return NGX_CONF_ERROR;
+        if (upscf->upsync_params.data != NGX_CONF_UNSET_PTR) {
+            ngx_sprintf((u_char *)upscf->data, "/discovery/polls?%V", &upscf->upsync_params);
+        } else {
+            p = (u_char *)getenv("DEPLOY_ENV");
+            if (p == NULL) {
+                ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "upsync_server: "
+                                   "please declare environment variable 'DEPLOY_ENV'");
+                return NGX_CONF_ERROR;
+            }
+            ngx_sprintf((u_char *)upscf->data, "/discovery/polls?env=%s", p);
+            p = NULL;
         }
-        ngx_sprintf((u_char *)upscf->data, "/discovery/polls?env=%s", p);
-        p = NULL;
 
         upscf->upsync_send.data = upscf->data;
         upscf->upsync_send.len = ngx_strlen(upscf->data);
@@ -2348,6 +2365,9 @@ ngx_http_upsync_create_srv_conf(ngx_conf_t *cf)
     upscf->upsync_type_conf = NGX_CONF_UNSET_PTR;
 
     ngx_memzero(&upscf->conf_server, sizeof(upscf->conf_server));
+
+    upscf->upsync_params.len = NGX_CONF_UNSET_SIZE;
+    upscf->upsync_params.data = NGX_CONF_UNSET_PTR;
 
     upscf->data = NULL;
 
